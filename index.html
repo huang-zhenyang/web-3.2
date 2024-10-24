@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8" />
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+        font-family: "PingFangSC-Regular", "微软雅黑", sans-serif;
+        height: 100%;
+        background-color: black;
+      }
+      h1 {
+        font-size: 24px;
+        letter-spacing: -1px;
+        position: absolute;
+        margin: 0;
+        top: 10px;
+        right: 10px;
+        color: #fff;
+        text-shadow: 0 0 5px #000, 0 0 10px #000;
+      }
+      #controlPanel {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        background: rgba(255, 255, 255, 0.8);
+        padding: 10px;
+        border-radius: 5px;
+      }
+      #score {
+        position: absolute;
+        top: 10px;
+        left: 50%;
+        transform: translateX(-50%);
+        color: #fff;
+        text-shadow: 0 0 5px #000, 0 0 10px #000;
+      }
+      #controlPanel input {
+        width: 50px;
+        margin-right: 10px;
+      }
+    </style>
+</head>
+
+<body>
+<h1>小球碰撞变色</h1>
+<div id="score">剩余球数: 0</div>
+<div id="controlPanel">
+    <label for="ballCount">选择小球数量: </label>
+    <input type="number" id="ballCount" value="25" min="1" max="100" />
+    <button id="startButton">开始</button>
+</div>
+<canvas></canvas>
+
+<script>
+      const canvas = document.querySelector("canvas");
+      const ctx = canvas.getContext("2d");
+      const scoreDisplay = document.getElementById('score');
+
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+
+      function random(min, max) {
+        return Math.floor(Math.random() * (max - min)) + min;
+      }
+
+      function randomColor() {
+        return `rgb(${random(0, 255)}, ${random(0, 255)}, ${random(0, 255)})`;
+      }
+
+      class Shape {
+        constructor(x, y, size, color) {
+          this.x = x;
+          this.y = y;
+          this.size = size;
+          this.color = color;
+        }
+
+        draw() {
+          ctx.beginPath();
+          ctx.fillStyle = this.color;
+          ctx.arc(this.x, this.y, this.size, 0, 2 * Math.PI);
+          ctx.fill();
+        }
+      }
+
+     class Ball extends Shape {
+  constructor(x, y, velX, velY, color, size) {
+    super(x, y, size, color);
+    this.velX = velX;
+    this.velY = velY;
+    this.exists = true; // 添加一个标识符，用于检查小球是否存在
+  }
+
+        update() {
+          this.x += this.velX;
+          this.y += this.velY;
+
+          if (this.x + this.size > canvas.width || this.x - this.size < 0) {
+            this.velX = -this.velX;
+          }
+
+          if (this.y + this.size > canvas.height || this.y - this.size < 0) {
+            this.velY = -this.velY;
+          }
+        }
+
+       collisionDetect(devil) {
+    const dx = this.x - devil.x;
+    const dy = this.y - devil.y;
+    const distance = Math.hypot(dx, dy);
+    if (distance < this.size + devil.size) {
+      this.exists = false; // 碰撞后设置为不可用
+    }
+  }
+}
+
+
+      class DevilCircle extends Shape {
+        constructor(x, y, size, color, velX, velY) {
+          super(x, y, size, color);
+          this.velX = velX;
+          this.velY = velY;
+        }
+
+        update() {
+          this.x += this.velX;
+          this.y += this.velY;
+
+          if (this.x + this.size > canvas.width || this.x - this.size < 0) {
+            this.velX = -this.velX;
+          }
+
+          if (this.y + this.size > canvas.height || this.y - this.size < 0) {
+            this.velY = -this.velY;
+          }
+        }
+      }
+
+      let balls = [];
+      let devil;
+
+      function createBalls(count) {
+  balls = []; // 确保球的数组被重置
+  for (let i = 0; i < count; i++) {
+    const size = random(10, 20);
+    const x = random(size, canvas.width - size);
+    const y = random(size, canvas.height - size);
+    const velX = random(-70, 70) / 10; // 增加速度范围
+    const velY = random(-70, 70) / 10; // 增加速度范围
+    balls.push(new Ball(x, y, velX, velY, randomColor(), size));
+  }
+  scoreDisplay.textContent = `剩余球数: ${count}`;
+}
+
+     document.getElementById('startButton').addEventListener('click', () => {
+  const count = parseInt(document.getElementById('ballCount').value, 10) || 25;
+  balls = []; // 清空球的数组，确保不会叠加
+  createBalls(count);
+  devil = new DevilCircle(canvas.width / 2, canvas.height / 2, 20, 'red', 0, 0);
+  startGame();
+});
+
+      function startGame() {
+        document.addEventListener('keydown', (e) => {
+          const speed = 2;
+          switch (e.keyCode) {
+            case 37: // left
+              devil.velX = -speed;
+              break;
+            case 39: // right
+              devil.velX = speed;
+              break;
+            case 38: // up
+              devil.velY = -speed;
+              break;
+            case 40: // down
+              devil.velY = speed;
+              break;
+          }
+        });
+
+        document.addEventListener('keyup', (e) => {
+          const speed = 2;
+          switch (e.keyCode) {
+            case 37: // left
+            case 39: // right
+              devil.velX = 0;
+              break;
+            case 38: // up
+            case 40: // down
+              devil.velY = 0;
+              break;
+          }
+        });
+
+        loop();
+      }
+
+      function loop() {
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  balls.forEach((ball, index) => {
+    if (ball.exists) { // 仅绘制存在的小球
+      ball.draw();
+      ball.update();
+      ball.collisionDetect(devil);
+    }
+  });
+
+  // 从 balls 数组中移除不存在的小球
+  balls = balls.filter(ball => ball.exists);
+  scoreDisplay.textContent = `剩余球数: ${balls.length}`;
+
+  if (balls.length === 0) {
+    scoreDisplay.textContent = "游戏结束";
+    return;
+  }
+
+        devil.draw();
+        devil.update();
+        requestAnimationFrame(loop);
+      }
+    </script>
+</body>
+</html>
